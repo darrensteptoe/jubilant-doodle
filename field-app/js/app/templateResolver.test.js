@@ -243,6 +243,24 @@ test("template resolver: office level override persists when explicitly changed"
   assert.equal(state.templateMeta?.officeLevel, "statewide_executive");
 });
 
+test("template resolver: non-custom templates still follow canonical office-level mapping", () => {
+  const state = makeState({ raceType: "state_leg" });
+  applyTemplateDefaultsToState(state, { templateId: "state_house", mode: "all" });
+
+  applyTemplateDefaultsToState(state, {
+    mode: "untouched",
+    officeLevel: "state_legislative_upper",
+    electionType: state.templateMeta?.electionType,
+    seatContext: state.templateMeta?.seatContext,
+    partisanshipMode: state.templateMeta?.partisanshipMode,
+    salienceLevel: state.templateMeta?.salienceLevel,
+  });
+  syncTemplateMetaFromState(state);
+
+  assert.equal(state.templateMeta?.appliedTemplateId, "state_senate");
+  assert.equal(state.templateMeta?.officeLevel, "state_legislative_upper");
+});
+
 test("template resolver: custom office level does not coerce template back to state house", () => {
   const state = makeState({ raceType: "state_leg" });
   applyTemplateDefaultsToState(state, { templateId: "custom_context", mode: "all" });
@@ -260,6 +278,40 @@ test("template resolver: custom office level does not coerce template back to st
 
   assert.equal(state.templateMeta?.appliedTemplateId, "custom_context");
   assert.equal(state.templateMeta?.officeLevel, "custom_context");
+});
+
+test("template resolver: custom template identity is preserved when office level changes", () => {
+  for (const officeLevel of ["statewide_executive", "congressional_district", "state_legislative_lower"]) {
+    const state = makeState({ raceType: "state_leg" });
+    applyTemplateDefaultsToState(state, { templateId: "custom_context", mode: "all" });
+    const before = {
+      bandWidth: state.bandWidth,
+      persuasionPct: state.persuasionPct,
+      earlyVoteExp: state.earlyVoteExp,
+    };
+
+    const result = applyTemplateDefaultsToState(state, {
+      mode: "all",
+      officeLevel,
+      electionType: state.templateMeta?.electionType,
+      seatContext: state.templateMeta?.seatContext,
+      partisanshipMode: state.templateMeta?.partisanshipMode,
+      salienceLevel: state.templateMeta?.salienceLevel,
+    });
+    syncTemplateMetaFromState(state);
+
+    assert.equal(result.ok, true);
+    assert.equal(state.templateMeta?.appliedTemplateId, "custom_context");
+    assert.equal(state.templateMeta?.officeLevel, officeLevel);
+    assert.deepEqual(
+      {
+        bandWidth: state.bandWidth,
+        persuasionPct: state.persuasionPct,
+        earlyVoteExp: state.earlyVoteExp,
+      },
+      before,
+    );
+  }
 });
 
 test("template resolver: legacy custom office level alias normalizes to custom_context", () => {
