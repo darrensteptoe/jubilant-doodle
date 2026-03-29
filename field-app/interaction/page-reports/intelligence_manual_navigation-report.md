@@ -1,6 +1,6 @@
 # Intelligence / Manual Navigation Interaction Integrity Report
 
-Generated: 2026-03-22T01:56:41.365Z
+Generated: 2026-03-23T22:40:13.930Z
 Tier: tier3
 Surface key: intelligence_manual_navigation
 

@@ -1,6 +1,6 @@
 # Plan / Optimizer Interaction Integrity Report
 
-Generated: 2026-03-22T01:56:41.365Z
+Generated: 2026-03-23T22:40:13.930Z
 Tier: tier1
 Surface key: plan_optimizer
 

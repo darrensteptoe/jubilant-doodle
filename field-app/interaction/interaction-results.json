@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-03-22T02:12:11.053Z",
+  "generatedAt": "2026-03-23T22:40:13.729Z",
   "inventoryPath": "interaction/interaction-inventory.csv",
-  "strictMode": true,
+  "strictMode": false,
   "requiredColumns": [
     "interaction_id",
     "label",
