@@ -7,6 +7,8 @@ Files:
 - `store.js`: IndexedDB CRUD + merge/replace helpers
 - `io.js`: JSON snapshot import/export + CSV store import/export
 - `rollups.js`: overlap-safe production/coverage rollups + dedupe counters
+- `geographyActivity.js`: turf-event geography normalization + organizer geography joinability helpers
+- `workedGeography.js`: read-only worked-geography aggregation for office/organizer map joins
 - `workforce.js`: canonical role (`workforceRole`) + legacy role/compensation normalization + staffing rollups
 - `context.js`: campaign/office scope helpers for Operations pages + link propagation
 
@@ -46,4 +48,8 @@ Current status:
 Source-of-truth policy:
 - Production totals come from shifts.
 - Turf attempts are coverage metrics and excluded from production totals by default.
+- `shiftRecords` is the shift summary ledger (who/when/office/mode/hours/output + optional turf context).
+- `turfEvents` is the geography-touch ledger (what geography was worked, by whom, and linked activity counts).
+- Preferred turf-event geography join path: `unitType` + `unitId` with optional `tractGeoid`, `blockGroupGeoid`, `stateFips`, `countyFips`.
+- Legacy turf-event fields (`turfId`, `precinct`, `county`) remain supported via normalization compatibility.
 - See `/THIRD_WING_SOURCE_OF_TRUTH.md`.

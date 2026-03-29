@@ -4,6 +4,7 @@
 
 import { computeWorkforceOfficeMix, computeWorkforceRollups } from "./workforce.js";
 import { operationsShiftHours } from "./time.js";
+import { normalizeTurfEventRecord, resolveTurfEventMapJoinRef } from "./geographyActivity.js";
 import { roundWholeNumberByMode } from "../../core/utils.js";
 
 function num(v, fallback = 0){
@@ -31,11 +32,16 @@ function shiftFingerprint(shift){
 }
 
 function turfFingerprint(turf){
+  const normalized = normalizeTurfEventRecord(turf);
+  const joinRef = resolveTurfEventMapJoinRef(normalized);
+  const preferredUnitType = str(joinRef.unitType);
+  const preferredUnitId = str(joinRef.unitId);
   return [
-    dayKey(turf?.date),
-    str(turf?.assignedTo),
-    str(turf?.turfId),
-    str(turf?.mode),
+    dayKey(normalized?.date),
+    str(normalized?.assignedTo),
+    preferredUnitType || "legacy",
+    preferredUnitId || str(normalized?.turfId) || str(normalized?.precinct),
+    str(normalized?.mode),
   ].join("|");
 }
 
@@ -71,11 +77,16 @@ export function summarizeTurfCoverage(turfEvents){
   const rows = Array.isArray(turfEvents) ? turfEvents : [];
   const byPrecinct = new Map();
   const byTurfId = new Map();
+  const byUnit = new Map();
+  const byUnitType = new Map();
   let attempts = 0;
   let canvassed = 0;
   let vbms = 0;
+  let joinableEventCount = 0;
 
-  for (const rec of rows){
+  for (const row of rows){
+    const rec = normalizeTurfEventRecord(row);
+    const joinRef = resolveTurfEventMapJoinRef(rec);
     attempts += Math.max(0, num(rec?.attempts, 0));
     canvassed += Math.max(0, num(rec?.canvassed, 0));
     vbms += Math.max(0, num(rec?.vbms, 0));
@@ -85,15 +96,29 @@ export function summarizeTurfCoverage(turfEvents){
 
     const turfId = str(rec?.turfId) || "unassigned";
     byTurfId.set(turfId, (byTurfId.get(turfId) || 0) + 1);
+
+    if (joinRef.joinable){
+      joinableEventCount += 1;
+      const unitKey = `${joinRef.unitType}:${joinRef.unitId}`;
+      byUnit.set(unitKey, {
+        unitType: joinRef.unitType,
+        unitId: joinRef.unitId,
+        touches: (byUnit.get(unitKey)?.touches || 0) + 1,
+      });
+      byUnitType.set(joinRef.unitType, (byUnitType.get(joinRef.unitType) || 0) + 1);
+    }
   }
 
   return {
     eventCount: rows.length,
+    joinableEventCount,
     attempts,
     canvassed,
     vbms,
     touchesByPrecinct: Array.from(byPrecinct.entries()).map(([precinct, touches]) => ({ precinct, touches })),
     touchesByTurfId: Array.from(byTurfId.entries()).map(([turfId, touches]) => ({ turfId, touches })),
+    touchesByUnit: Array.from(byUnit.values()),
+    touchesByUnitType: Array.from(byUnitType.entries()).map(([unitType, touches]) => ({ unitType, touches })),
   };
 }
 

@@ -18,6 +18,7 @@ import {
   resolveActiveContext,
 } from "../../app/activeContext.js";
 import { normalizePersonWorkforceFields } from "./workforce.js";
+import { normalizeTurfEventRecord } from "./geographyActivity.js";
 import { operationsNonNegativeInt, operationsNowIso } from "./time.js";
 import { roundWholeNumberByMode } from "../../core/utils.js";
 
@@ -316,6 +317,9 @@ function sanitizeRecord(storeName, input, context){
     rec.sessions = (Number.isFinite(sessions) && sessions > 0)
       ? (roundWholeNumberByMode(sessions, { mode: "round", fallback: 0 }) || 0)
       : 0;
+  }
+  if (storeName === "turfEvents"){
+    Object.assign(rec, normalizeTurfEventRecord(rec));
   }
 
   return applyScopedFields(storeName, rec, context || {});
