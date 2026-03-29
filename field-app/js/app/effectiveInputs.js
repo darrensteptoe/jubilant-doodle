@@ -9,6 +9,7 @@ import {
 import { resolveCanonicalCallsPerHour, resolveDoorShareUnitFromPct } from "../core/throughput.js";
 import { deriveEventCapacityAdjustmentForState } from "./eventImpactRules.js";
 import { isTodayOnlyAdjustmentActive } from "./weatherRiskRules.js";
+import { resolveCensusRowsForState } from "./censusRowsRuntimeStore.js";
 
 /**
  * @typedef {Record<string, any>} AnyState
@@ -94,7 +95,7 @@ export function createEffectiveInputsController({
     let srAdjusted = baseSr;
     let trAdjusted = baseTr;
     const censusState = (s?.census && typeof s.census === "object") ? s.census : {};
-    const censusRows = (censusState?.rowsByGeoid && typeof censusState.rowsByGeoid === "object") ? censusState.rowsByGeoid : {};
+    const censusRows = resolveCensusRowsForState(censusState);
     const censusSelectedGeoids = Array.isArray(censusState?.selectedGeoids) ? censusState.selectedGeoids : [];
     const hasRows = !!Object.keys(censusRows).length && censusSelectedGeoids.length > 0 && !!String(censusState?.activeRowsKey || "").trim();
     const advisory = hasRows

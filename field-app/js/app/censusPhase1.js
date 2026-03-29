@@ -629,15 +629,20 @@ function censusRuntimeTriggerAction(action){
 function censusRuntimeGetView(){
   const state = censusRuntimeReadState();
   const s = ensureCensusStateModule(state);
+  const selectedGeoids = Array.isArray(s?.selectedGeoids)
+    ? s.selectedGeoids.map((value) => cleanText(value)).filter(Boolean)
+    : [];
   return {
     statusText: cleanText(s?.status) || "Ready.",
     errorText: cleanText(s?.error),
+    metricSet: cleanText(s?.metricSet),
     resolution: cleanText(s?.resolution),
     stateFips: cleanText(s?.stateFips),
     countyFips: cleanText(s?.countyFips),
     placeFips: cleanText(s?.placeFips),
     loadedRowCount: Number.isFinite(Number(s?.loadedRowCount)) ? Math.max(0, floorCensusInt(s.loadedRowCount, 0)) : 0,
-    selectedGeoCount: Array.isArray(s?.selectedGeoids) ? s.selectedGeoids.length : 0,
+    selectedGeoids,
+    selectedGeoCount: selectedGeoids.length,
     activeRowsKey: cleanText(s?.activeRowsKey),
   };
 }

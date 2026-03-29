@@ -20,6 +20,7 @@ import {
   formatAssumptionsPercent,
 } from "./assumptionsViewHelpers.js";
 import { selectDistrictCanonicalView } from "../core/selectors/districtCanonical.js";
+import { resolveCensusRowsForState } from "./censusRowsRuntimeStore.js";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -136,10 +137,20 @@ export function renderAssumptionsModule(args){
       : (footprint.provenanceAligned ? "Aligned" : "Stale / missing")),
   ]));
 
+  const censusRuntimeState = runtimeState?.census && typeof runtimeState.census === "object"
+    ? runtimeState.census
+    : {};
+  const censusRuntimeRows = resolveCensusRowsForState(censusRuntimeState);
+  const censusSelectedGeoids = Array.isArray(censusRuntimeState?.selectedGeoids)
+    ? censusRuntimeState.selectedGeoids
+    : [];
+
   const censusPaceSnapshot = buildCensusPaceFeasibilitySnapshot({
     state,
     needVotes: res?.expected?.persuasionNeed,
     weeks,
+    rowsByGeoid: censusRuntimeRows,
+    selectedGeoids: censusSelectedGeoids,
   });
   const censusState = censusPaceSnapshot.censusState;
   const hasRows = !!censusPaceSnapshot.activeRowsReady;
@@ -147,6 +158,15 @@ export function renderAssumptionsModule(args){
   const pace = censusPaceSnapshot.pace;
   const applyGate = censusPaceSnapshot.applyGate;
   const applyMultipliers = censusPaceSnapshot.applyMultipliers;
+  const loadedRowCount = Number.isFinite(Number(censusState?.loadedRowCount))
+    ? Math.max(0, Number(censusState.loadedRowCount))
+    : Object.keys(censusPaceSnapshot.rowsByGeoid || {}).length;
+  const selectedGeoCount = Array.isArray(censusState?.selectedGeoids) ? censusState.selectedGeoids.length : 0;
+  const rowsContextText = hasRows
+    ? (censusState.activeRowsKey || `Loaded (${loadedRowCount.toLocaleString("en-US")} rows)`)
+    : (loadedRowCount > 0 && selectedGeoCount > 0
+      ? `Loaded (${loadedRowCount.toLocaleString("en-US")} rows), runtime context unavailable`
+      : "Not loaded");
 
   const feasibilityText = buildAssumptionsFeasibilityText(pace);
   const applyModeText = buildAssumptionsApplyModeText({
@@ -155,7 +175,7 @@ export function renderAssumptionsModule(args){
   });
 
   blocks.push(block("Census operating band", [
-    kv("Rows context", hasRows ? (censusState.activeRowsKey || "Loaded") : "Not loaded"),
+    kv("Rows context", rowsContextText),
     kv("Signal coverage", buildAssumptionsSignalCoverageText(advisory)),
     kv("Apply mode", applyModeText),
     kv("Achievable APH (p25/p50/p75)", advisory?.ready ? formatAssumptionsBand(advisory.aph?.range) : "—"),

@@ -34,6 +34,20 @@ export function getCensusRowsForState(censusState){
 }
 
 /**
+ * Resolve Census rows from the runtime key store first, with inline state fallback
+ * for legacy/test flows that still pass rows directly on census state.
+ * @param {{ activeRowsKey?: string, rowsByGeoid?: Record<string, any> } | null | undefined} censusState
+ * @returns {Record<string, any>}
+ */
+export function resolveCensusRowsForState(censusState){
+  const runtimeRows = getCensusRowsForState(censusState);
+  if (Object.keys(runtimeRows).length > 0){
+    return runtimeRows;
+  }
+  return normalizeRowsByGeoid(censusState?.rowsByGeoid);
+}
+
+/**
  * Remove cached Census rows for a specific key.
  * @param {string} rowsKey
  */
@@ -46,4 +60,3 @@ export function clearCensusRowsForKey(rowsKey){
 export function clearAllCensusRows(){
   censusRowsByKey.clear();
 }
-
