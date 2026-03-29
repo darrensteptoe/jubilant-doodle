@@ -27,10 +27,11 @@
     <div class="operations-shell">
       <aside class="operations-nav card card-section" aria-label="Operations modules">
         <button class="operations-nav-btn" data-module="overview" type="button">Overview</button>
+        <button class="operations-nav-btn" data-module="operations_training" type="button">Operations Training</button>
         <button class="operations-nav-btn" data-module="recruitment" type="button">Recruitment</button>
         <button class="operations-nav-btn" data-module="interviews" type="button">Interviews</button>
         <button class="operations-nav-btn" data-module="onboarding" type="button">Onboarding</button>
-        <button class="operations-nav-btn" data-module="training" type="button">Training</button>
+        <button class="operations-nav-btn" data-module="training" type="button">Training Tracker</button>
         <button class="operations-nav-btn" data-module="shifts" type="button">Shift Scheduler</button>
         <button class="operations-nav-btn" data-module="turf" type="button">Turf Tracker</button>
         <button class="operations-nav-btn" data-module="aggregate" type="button">Aggregate</button>
@@ -44,6 +45,9 @@
             <div class="card-head card-header">
               <h2 class="card-title">Overview</h2>
               <div class="help-text">Current Operations footprint across pipeline, shifts, turf, and forecast configuration.</div>
+              <div class="card-actions">
+                <a class="btn btn-sm btn-ghost operations-training-link" href="operations.html#operations_training:overview-dashboard" title="View training for this page">View Training</a>
+              </div>
             </div>
             <div class="subgrid">
               <div class="mini"><div class="mini-k">People</div><div class="mini-v" id="ovPersons">0</div></div>
@@ -65,6 +69,13 @@
             <div class="card-head card-header" style="padding-top:0;">
               <h3 class="card-title" style="font-size:1rem;">Performance &amp; Pace</h3>
               <div class="help-text">Weekly office management view tied to canonical campaign goals and scoped operations output.</div>
+              <div class="card-actions">
+                <a class="btn btn-sm btn-ghost operations-training-link" href="operations.html#operations_training:office-performance" title="View training for this page">View Training</a>
+              </div>
+            </div>
+            <div class="operations-training-inline-links" aria-label="Performance training links">
+              <span class="mini-s">Organizer Performance <a class="operations-training-inline-link" href="operations.html#operations_training:organizer-performance" title="Open the matching training section">View Training</a></span>
+              <span class="mini-s">Volunteer Tracking <a class="operations-training-inline-link" href="operations.html#operations_training:volunteer-tracking" title="Open the matching training section">View Training</a></span>
             </div>
             <div class="subgrid">
               <div class="mini"><div class="mini-k">Office goal</div><div class="mini-v" id="opPerfGoal">—</div></div>
@@ -107,6 +118,363 @@
               <strong>Weekly coaching insights</strong>
               <ul id="opPerfInsights" style="margin:6px 0 0 18px;"></ul>
             </div>
+
+            <div class="note" style="margin-top:10px;">
+              <strong>Map worked-geography bridge</strong>
+              <div class="mini-s" style="margin-top:4px;">Open Map in worked geography mode for an office or organizer. This reflects activity evidence, not assigned turf boundaries.</div>
+              <div class="grid3" style="margin-top:8px;">
+                <div class="field">
+                  <label class="label" for="mapBridgeOrganizerSelect">Organizer focus</label>
+                  <select class="select" id="mapBridgeOrganizerSelect">
+                    <option value="">All organizers (office scope)</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="label" for="btnMapBridgeOrganizer">Organizer worked map</label>
+                  <button class="btn btn-sm" id="btnMapBridgeOrganizer" type="button">Open organizer worked geography</button>
+                </div>
+                <div class="field">
+                  <label class="label" for="btnMapBridgeOffice">Office worked map</label>
+                  <button class="btn btn-sm btn-ghost" id="btnMapBridgeOffice" type="button">Open office worked geography</button>
+                </div>
+              </div>
+              <div class="mini-s" id="mapBridgeStatus" aria-live="polite" style="margin-top:8px;">Select organizer/office focus, then open Map worked geography.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="operations-module" data-module-panel="operations_training">
+          <div class="card card-section operations-training">
+            <div class="card-head card-header">
+              <h2 class="card-title">Operations Training</h2>
+              <div class="help-text">Walkthrough and reference for day-to-day Operations Hub work.</div>
+            </div>
+
+            <div class="mini-s operations-training-jump-label">Jump to a section</div>
+            <nav class="operations-training-anchor-nav" aria-label="Operations training sections">
+              <button class="operations-training-anchor" data-training-jump-target="operations-training-intro" type="button">Intro</button>
+              <button class="operations-training-anchor" data-training-jump-target="video-walkthrough" type="button">Video Walkthrough</button>
+              <button class="operations-training-anchor" data-training-jump-target="quick-start" type="button">Quick Start</button>
+              <button class="operations-training-anchor" data-training-jump-target="how-it-works" type="button">How It Works</button>
+              <button class="operations-training-anchor" data-training-jump-target="page-walkthrough" type="button">Page Walkthrough</button>
+              <button class="operations-training-anchor" data-training-jump-target="metrics-glossary" type="button">Metrics Glossary</button>
+              <button class="operations-training-anchor" data-training-jump-target="role-guidance" type="button">Role Guidance</button>
+              <button class="operations-training-anchor" data-training-jump-target="data-quality" type="button">Data Quality</button>
+              <button class="operations-training-anchor" data-training-jump-target="common-mistakes" type="button">Common Mistakes</button>
+              <button class="operations-training-anchor" data-training-jump-target="faq" type="button">FAQ</button>
+            </nav>
+
+            <section class="operations-training-section" id="operations-training-intro">
+              <h3>Operations Training</h3>
+              <p>Use this page to learn how the Operations Hub works, what each section is for, how campaign data should be entered, and how managers should interpret performance across staff, volunteers, and offices.</p>
+              <p>This training page is designed for the people who use the Operations Hub every day. It is both a walkthrough for new users and a reference page for staff who need quick answers while working.</p>
+              <p><strong>Use this page when:</strong></p>
+              <ul>
+                <li>onboarding new staff</li>
+                <li>reviewing how to enter or update data</li>
+                <li>checking how a metric is defined</li>
+                <li>understanding what a page is meant to track</li>
+                <li>coaching organizers or office managers</li>
+                <li>troubleshooting reporting issues</li>
+              </ul>
+            </section>
+
+            <section class="operations-training-section" id="video-walkthrough">
+              <h3>Video Walkthrough</h3>
+              <p>A full walkthrough video can be embedded here to train new staff on the Operations Hub from start to finish. This section is intended to give users a quick visual orientation before they begin using the system.</p>
+              <div class="operations-training-video-shell">
+                <div class="operations-training-video-frame" id="opsTrainingVideoHost" aria-live="polite"></div>
+                <div class="mini-s" id="opsTrainingVideoStatus">Video walkthrough placeholder.</div>
+              </div>
+              <h4>What this video should cover</h4>
+              <ul>
+                <li>how the Operations Hub is organized</li>
+                <li>where daily and weekly inputs happen</li>
+                <li>how performance is tracked</li>
+                <li>what managers should review regularly</li>
+                <li>common mistakes to avoid</li>
+                <li>how to keep office reporting clean and reliable</li>
+              </ul>
+            </section>
+
+            <section class="operations-training-section" id="quick-start">
+              <h3>Quick Start Guide</h3>
+              <p>If you are new to the Operations Hub, start here:</p>
+              <ol>
+                <li>Learn which pages you are responsible for updating.</li>
+                <li>Enter data consistently and on time.</li>
+                <li>Review your numbers before leaving the page.</li>
+                <li>Make sure your entries match the campaign’s reporting standards.</li>
+                <li>If something looks wrong, correct it early before it affects weekly reporting.</li>
+                <li>Managers should review activity, staffing, volunteer movement, and progress to goal on a regular schedule.</li>
+              </ol>
+              <p><strong>The Operations Hub is only as useful as the discipline behind it. Good reporting habits make the rest of the campaign smarter.</strong></p>
+            </section>
+
+            <section class="operations-training-section" id="how-it-works">
+              <h3>How the Operations Hub Works</h3>
+              <p>The Operations Hub is the execution side of the campaign system. It is used to track what is actually happening in the field: staff activity, office progress, volunteer movement, voter contact work, ballot collection, and other core operating numbers.</p>
+              <p>Unlike planning tools, the Operations Hub is built for live usage. It should reflect current reality as closely as possible. That means the most important habits are consistency, accuracy, and timely updates.</p>
+              <p>In practical terms, this system helps campaigns answer questions like:</p>
+              <ul>
+                <li>Are we entering data on time?</li>
+                <li>Are organizers producing at the expected level?</li>
+                <li>Is an office on pace toward its goals?</li>
+                <li>Are volunteer numbers healthy or weakening?</li>
+                <li>Are ballot collection efforts moving?</li>
+                <li>Where is intervention needed before a problem becomes serious?</li>
+              </ul>
+            </section>
+
+            <section class="operations-training-section" id="page-walkthrough">
+              <h3>Page-by-Page Walkthrough</h3>
+              <p>Use this section to understand what each major area of the Operations Hub is for, who should use it, and what good usage looks like. If your live page labels differ slightly, match the live labels while preserving the guidance and substance below.</p>
+
+              <article class="operations-training-subsection" id="overview-dashboard">
+                <h4>Operations Overview / Dashboard</h4>
+                <p><strong>Purpose</strong><br />This page gives users a top-level view of field operations performance. It should help staff and managers understand the current state of the office or campaign without digging through every individual workflow page.</p>
+                <p><strong>Who should use it</strong><br />Office managers, organizers, regional leadership, and anyone responsible for operational oversight.</p>
+                <p><strong>What to review here</strong></p>
+                <ul>
+                  <li>current progress toward major goals</li>
+                  <li>recent productivity trends</li>
+                  <li>volunteer activity</li>
+                  <li>ballot collection progress</li>
+                  <li>office contribution to larger campaign goals</li>
+                  <li>warning signs that require follow-up</li>
+                </ul>
+                <p><strong>How often to check it</strong><br />Managers should review it daily and use it as part of weekly performance conversations.</p>
+                <p><strong>What good usage looks like</strong><br />This page should be the first stop for understanding whether the operation is healthy, on pace, and reporting consistently.</p>
+                <p><strong>Common mistakes</strong></p>
+                <ul>
+                  <li>treating the dashboard like a substitute for reviewing underlying data</li>
+                  <li>ignoring trend changes because totals still look acceptable</li>
+                  <li>assuming missing or delayed inputs mean weak performance rather than incomplete reporting</li>
+                </ul>
+              </article>
+
+              <article class="operations-training-subsection" id="daily-entry">
+                <h4>Daily Entry / Daily Reporting</h4>
+                <p><strong>Purpose</strong><br />This page exists to capture the work that happened that day. It is the source layer for many of the numbers used elsewhere in the hub.</p>
+                <p><strong>Who should use it</strong><br />Staff responsible for entering daily activity, usually organizers or office-level operators.</p>
+                <p><strong>What belongs here</strong></p>
+                <ul>
+                  <li>voter contact work</li>
+                  <li>volunteer activity where applicable</li>
+                  <li>shifts or staffing activity</li>
+                  <li>office outputs tied to daily work</li>
+                  <li>other campaign-defined daily field metrics</li>
+                </ul>
+                <p><strong>How often to update it</strong><br />Daily. Data entry should happen as close to the workday as possible.</p>
+                <p><strong>Why this page matters</strong><br />If daily entry is inconsistent, every summary page becomes less trustworthy. Strong daily discipline is one of the most important operational habits in the system.</p>
+                <p><strong>Common mistakes</strong></p>
+                <ul>
+                  <li>entering data late</li>
+                  <li>skipping days and trying to reconstruct them later</li>
+                  <li>inconsistent counting standards across staff</li>
+                  <li>forgetting corrections after a reporting error is found</li>
+                </ul>
+              </article>
+
+              <article class="operations-training-subsection" id="organizer-performance">
+                <h4>Organizer Performance</h4>
+                <p><strong>Purpose</strong><br />This page shows how individual staff members are performing against expectations and goals.</p>
+                <p><strong>Who should use it</strong><br />Organizers, office managers, and field directors.</p>
+                <p><strong>What to review here</strong></p>
+                <ul>
+                  <li>individual output</li>
+                  <li>consistency over time</li>
+                  <li>pace toward personal or assigned goals</li>
+                  <li>comparison to office expectations</li>
+                  <li>warning signs for coaching or intervention</li>
+                </ul>
+                <p><strong>How managers should use it</strong><br />Use this page for weekly 1:1s, productivity reviews, accountability conversations, and support planning.</p>
+                <p><strong>What this page should help answer</strong></p>
+                <ul>
+                  <li>who is on pace</li>
+                  <li>who is falling behind</li>
+                  <li>who may need coaching, better turf, more support, or clearer expectations</li>
+                  <li>whether an office’s problem is broad or concentrated in a few users</li>
+                </ul>
+                <p><strong>Common mistakes</strong></p>
+                <ul>
+                  <li>using this page only for punishment rather than coaching</li>
+                  <li>overreacting to one bad day instead of reviewing patterns</li>
+                  <li>ignoring context such as staffing changes, bad turf quality, or uneven volunteer support</li>
+                </ul>
+              </article>
+
+              <article class="operations-training-subsection" id="office-performance">
+                <h4>Office Performance / Office Metrics</h4>
+                <p><strong>Purpose</strong><br />This page shows whether the office as a whole is moving at the right speed.</p>
+                <p><strong>Who should use it</strong><br />Office managers, field directors, senior operations leadership.</p>
+                <p><strong>What to review here</strong></p>
+                <ul>
+                  <li>total progress to goal</li>
+                  <li>remaining gap</li>
+                  <li>average pace needed from here</li>
+                  <li>contribution to campaign-wide targets</li>
+                  <li>staffing and volunteer health</li>
+                  <li>whether the office is stabilizing, improving, or slipping</li>
+                </ul>
+                <p><strong>Why this page matters</strong><br />A manager should be able to look at this page and quickly understand whether the office is functioning as expected and where to intervene.</p>
+                <p><strong>Common mistakes</strong></p>
+                <ul>
+                  <li>focusing only on cumulative totals</li>
+                  <li>ignoring whether the current weekly pace is enough</li>
+                  <li>missing early signs of underperformance because the headline goal still seems achievable</li>
+                </ul>
+              </article>
+
+              <article class="operations-training-subsection" id="volunteer-tracking">
+                <h4>Volunteer Tracking</h4>
+                <p><strong>Purpose</strong><br />This page tracks the movement and health of volunteer activity in the office or campaign.</p>
+                <p><strong>Who should use it</strong><br />Organizers and managers responsible for recruitment, retention, and activation.</p>
+                <p><strong>What to review here</strong></p>
+                <ul>
+                  <li>active volunteers</li>
+                  <li>recent volunteer engagement</li>
+                  <li>show-up consistency</li>
+                  <li>whether volunteer numbers are growing, stalling, or declining</li>
+                </ul>
+                <p><strong>Why it matters</strong><br />Volunteer energy is often one of the earliest indicators of whether an operation is scaling or stalling.</p>
+                <p><strong>Common mistakes</strong></p>
+                <ul>
+                  <li>counting volunteers inconsistently</li>
+                  <li>inflating active numbers with people who are no longer participating</li>
+                  <li>failing to distinguish recruitment from actual activation</li>
+                </ul>
+              </article>
+
+              <article class="operations-training-subsection" id="ballot-vbm">
+                <h4>Ballot / VBM Tracking</h4>
+                <p><strong>Purpose</strong><br />This page tracks ballot collection or vote-by-mail operational movement.</p>
+                <p><strong>Who should use it</strong><br />Organizers, managers, and leadership tracking early vote execution.</p>
+                <p><strong>What to review here</strong></p>
+                <ul>
+                  <li>ballots collected</li>
+                  <li>collection pace</li>
+                  <li>recent changes in activity</li>
+                  <li>contribution of ballot operations to wider turnout goals</li>
+                </ul>
+                <p><strong>Why it matters</strong><br />Ballot work is time-sensitive and often requires fast follow-up. Delayed reporting reduces the campaign’s ability to adapt.</p>
+                <p><strong>Common mistakes</strong></p>
+                <ul>
+                  <li>updating too late</li>
+                  <li>failing to reconcile duplicate or incomplete ballot entries</li>
+                  <li>treating ballot numbers as static instead of part of an active chase operation</li>
+                </ul>
+              </article>
+            </section>
+
+            <section class="operations-training-section" id="metrics-glossary">
+              <h3>Metrics Glossary</h3>
+              <div class="operations-training-glossary-item">
+                <h4>Active Volunteers</h4>
+                <p>The number of volunteers currently participating in campaign work according to the campaign’s reporting standards. This should reflect real operational activity, not just names in a list.</p>
+              </div>
+              <div class="operations-training-glossary-item">
+                <h4>Progress to Goal</h4>
+                <p>How much of a target has already been completed. This helps users see how far they have come, but it should always be paired with pace and remaining gap.</p>
+              </div>
+              <div class="operations-training-glossary-item">
+                <h4>Remaining to Goal</h4>
+                <p>The amount of work still required to reach the target. This is often more useful for management than the raw total already completed.</p>
+              </div>
+              <div class="operations-training-glossary-item">
+                <h4>Pace Needed</h4>
+                <p>The average amount of work that must be completed over the remaining time period in order to hit the goal.</p>
+              </div>
+              <div class="operations-training-glossary-item">
+                <h4>Average Per Organizer</h4>
+                <p>The average contribution expected or observed per organizer. This helps managers judge whether staffing structure and output are aligned.</p>
+              </div>
+              <div class="operations-training-glossary-item">
+                <h4>Office Contribution</h4>
+                <p>How much one office has contributed to the larger campaign-wide target. This is especially useful for regional and senior management.</p>
+              </div>
+              <div class="operations-training-glossary-item">
+                <h4>Ballots Collected</h4>
+                <p>The number of vote-by-mail or ballot collection actions recorded under the campaign’s reporting standards.</p>
+              </div>
+              <div class="operations-training-glossary-item">
+                <h4>Productivity Trend</h4>
+                <p>The direction of performance over time. Trend matters because totals can hide whether an operation is improving or slipping.</p>
+              </div>
+              <div class="operations-training-glossary-item">
+                <h4>Reporting Discipline</h4>
+                <p>How consistently and on time the campaign enters data. Strong reporting discipline improves trust in every page of the Operations Hub.</p>
+              </div>
+            </section>
+
+            <section class="operations-training-section" id="role-guidance">
+              <h3>Role-Based Guidance</h3>
+              <div class="operations-training-subsection">
+                <h4>For Organizers</h4>
+                <p>Your job is to keep activity current, accurate, and consistent. Enter work on time, review your own numbers, and flag issues early. Good organizers do not wait until the end of the week to reconstruct what happened.</p>
+              </div>
+              <div class="operations-training-subsection">
+                <h4>For Office Managers</h4>
+                <p>Your job is not just to monitor totals. You are responsible for the health of the office. Review staffing, volunteer movement, productivity trends, and data quality regularly. Use the system for coaching, support, and intervention before a problem spreads.</p>
+              </div>
+              <div class="operations-training-subsection">
+                <h4>For Field Directors</h4>
+                <p>Use the Operations Hub to identify office-level patterns, not just individual underperformance. Look for changes in pace, weak offices, repeated data quality issues, volunteer softness, and unrealistic gap-to-goal profiles.</p>
+              </div>
+            </section>
+
+            <section class="operations-training-section" id="data-quality">
+              <h3>Data Quality Standards</h3>
+              <p>The Operations Hub is only as reliable as the data entered into it. Every user should follow the same standards:</p>
+              <ul>
+                <li>enter data on time</li>
+                <li>use the same counting rules across staff</li>
+                <li>avoid duplicate entries</li>
+                <li>correct known errors quickly</li>
+                <li>do not guess when exact numbers are available</li>
+                <li>do not leave unusual gaps unaddressed</li>
+                <li>managers should review for consistency, not just volume</li>
+              </ul>
+              <p><strong>Bad data creates false confidence, false alarms, and wasted management time. Clean data supports better decisions.</strong></p>
+            </section>
+
+            <section class="operations-training-section" id="common-mistakes">
+              <h3>Common Mistakes to Avoid</h3>
+              <ul>
+                <li>waiting too long to enter data</li>
+                <li>counting activity differently from other staff</li>
+                <li>assuming a total tells the whole story</li>
+                <li>ignoring whether pace is actually enough to finish</li>
+                <li>failing to reconcile missing days</li>
+                <li>allowing offices to report on different standards</li>
+                <li>mistaking incomplete data for weak performance</li>
+                <li>missing the difference between recruitment and actual volunteer activation</li>
+              </ul>
+            </section>
+
+            <section class="operations-training-section" id="faq">
+              <h3>Frequently Asked Questions</h3>
+              <div class="operations-training-faq-item">
+                <h4>Why do my numbers look off?</h4>
+                <p>Start by checking whether the data was entered on time, whether any days are missing, and whether duplicate or incorrect entries were made.</p>
+              </div>
+              <div class="operations-training-faq-item">
+                <h4>Why does someone look behind on this page?</h4>
+                <p>Check whether expectations are realistic, whether their data is complete, and whether the issue is part of a longer trend or just a short-term dip.</p>
+              </div>
+              <div class="operations-training-faq-item">
+                <h4>What should a manager do first when an office looks off pace?</h4>
+                <p>Review recent pace, data completeness, staffing health, volunteer movement, and whether the remaining workload is still realistic.</p>
+              </div>
+              <div class="operations-training-faq-item">
+                <h4>What matters more: total progress or current pace?</h4>
+                <p>Both matter, but current pace is usually the better early warning sign. A strong total can hide a weakening trend.</p>
+              </div>
+              <div class="operations-training-faq-item">
+                <h4>When should numbers be corrected?</h4>
+                <p>As soon as an error is found. Delayed corrections affect summaries, manager decisions, and office accountability.</p>
+              </div>
+            </section>
           </div>
         </section>
 

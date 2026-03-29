@@ -28,6 +28,9 @@
       <div class="card-head card-header">
         <h2 class="card-title">Turf Event Entry</h2>
         <div class="help-text">Track precinct/turf coverage and touches. Optional link to a shift for dedupe transparency.</div>
+        <div class="card-actions">
+          <a class="btn btn-sm btn-ghost operations-training-link" href="operations.html#operations_training:ballot-vbm" title="View training for this page">View Training</a>
+        </div>
       </div>
 
       <div class="grid3">
@@ -65,6 +68,36 @@
         <div class="field">
           <label class="label" for="turfShiftId">Linked shift ID (optional)</label>
           <input class="input" id="turfShiftId" type="text" placeholder="shift_xxx" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfUnitType">Worked unit type (optional)</label>
+          <select class="select" id="turfUnitType">
+            <option value="">Auto from Turf/Precinct</option>
+            <option value="turf">Turf</option>
+            <option value="precinct">Precinct</option>
+            <option value="tract">Tract</option>
+            <option value="block_group">Block group</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="label" for="turfUnitId">Worked unit ID (optional)</label>
+          <input class="input" id="turfUnitId" type="text" placeholder="Unit ID (for selected type)" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfTractGeoid">Tract GEOID (optional)</label>
+          <input class="input" id="turfTractGeoid" type="text" placeholder="11-digit tract GEOID" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfBlockGroupGeoid">Block group GEOID (optional)</label>
+          <input class="input" id="turfBlockGroupGeoid" type="text" placeholder="12-digit block group GEOID" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfStateFips">State FIPS (optional)</label>
+          <input class="input" id="turfStateFips" type="text" placeholder="2-digit state FIPS" />
+        </div>
+        <div class="field">
+          <label class="label" for="turfCountyFips">County FIPS (optional)</label>
+          <input class="input" id="turfCountyFips" type="text" placeholder="3-digit county FIPS" />
         </div>
         <div class="field">
           <label class="label" for="turfAttempts">Attempts (coverage metric)</label>
