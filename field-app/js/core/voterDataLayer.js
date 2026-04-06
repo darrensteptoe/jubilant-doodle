@@ -1825,9 +1825,14 @@ export function deriveVoterModelSignals(voterDataState, options = {}){
   const summary = (state.latestUniverseSummary && typeof state.latestUniverseSummary === "object")
     ? state.latestUniverseSummary
     : buildVoterUniverseSummary(rows);
-  const ledger = (state.latestContactLedger && typeof state.latestContactLedger === "object")
-    ? state.latestContactLedger
-    : buildVoterContactHistoryLedger(rows, options);
+  const hasNowOverride = !!isoOrNull(options?.nowIso);
+  const hasRecentWindowOverride = safeNum(options?.recentWindowDays) != null;
+  const shouldRebuildLedger = hasNowOverride || hasRecentWindowOverride;
+  const ledger = shouldRebuildLedger
+    ? buildVoterContactHistoryLedger(rows, options)
+    : (state.latestContactLedger && typeof state.latestContactLedger === "object")
+      ? state.latestContactLedger
+      : buildVoterContactHistoryLedger(rows, options);
   const censusAgeDistribution = normalizeCensusAgeDistribution(options?.censusAgeDistribution);
   let historyIntelligence = (state.latestHistoryIntelligence && typeof state.latestHistoryIntelligence === "object")
     ? state.latestHistoryIntelligence
